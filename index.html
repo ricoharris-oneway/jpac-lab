@@ -1155,5 +1155,88 @@ function setupResize(){let active=null,start=0,startVal=0; document.querySelecto
 </script>
 <!-- ================= END ARIA VIRTUAL INSTRUCTOR ================= -->
 
+
+
+<!-- ================= JPAC WORKING VIRTUAL PIANO EXTENSION - GUARANTEED STATIC RENDER ================= -->
+<style id="jpac-working-piano-extension-style">
+.jpacPianoExt{border:1px solid rgba(36,231,255,.28);border-radius:22px;padding:16px;background:radial-gradient(circle at 8% 0%,rgba(36,231,255,.16),transparent 30%),radial-gradient(circle at 92% 0%,rgba(245,200,75,.14),transparent 32%),rgba(0,0,0,.30);box-shadow:0 0 28px rgba(36,231,255,.10),inset 0 0 0 1px rgba(139,44,255,.12);margin:0 0 14px}
+.jpacPianoExt *{box-sizing:border-box}.jpacPianoTop{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px}.jpacPianoTop h3{margin:0;font-size:1.25rem}.jpacPianoHint{color:#bfaee0;font-size:.9rem;line-height:1.4;margin:4px 0 0}.jpacPianoBadge{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(245,200,75,.35);background:rgba(245,200,75,.10);color:#f5c84b;border-radius:999px;padding:7px 10px;font-weight:800;font-size:.8rem}.jpacPianoControls{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px;margin-bottom:14px}.jpacPianoField{display:grid;gap:6px}.jpacPianoField label{color:#bfaee0;font-size:.8rem}.jpacPianoField select{width:100%;border:1px solid rgba(255,255,255,.14);background:#08030f;color:#fbf7ff;border-radius:12px;padding:11px}.jpacPianoButtons{display:flex;gap:8px;flex-wrap:wrap}.jpacPianoBtn{border:1px solid rgba(245,200,75,.28);background:linear-gradient(180deg,rgba(139,44,255,.32),rgba(8,4,16,.92));color:#fbf7ff;border-radius:12px;padding:10px 12px;cursor:pointer;font-weight:800}.jpacPianoBtn.primary{background:linear-gradient(135deg,#f5c84b,#ff4fd8,#8b2cff);color:#120719}.jpacPianoBtn.active{border-color:#24e7ff;box-shadow:0 0 18px rgba(36,231,255,.18)}.jpacKeyboardScroller{overflow-x:auto;padding:14px 8px 8px;border-radius:18px;border:1px solid rgba(36,231,255,.2);background:linear-gradient(135deg,rgba(7,20,38,.92),rgba(30,10,24,.92));min-height:254px}.jpacKeyboard{position:relative;width:936px;height:224px;margin:0 auto;user-select:none;touch-action:none}.jpacKey{position:absolute;border:1px solid rgba(0,0,0,.55);cursor:pointer;display:flex;align-items:flex-end;justify-content:center;font-weight:900}.jpacKey.white{top:0;width:54px;height:220px;border-radius:0 0 14px 14px;background:linear-gradient(180deg,#fff,#e7e0f2);color:#180a22;z-index:1;box-shadow:inset 0 -12px 18px rgba(0,0,0,.13)}.jpacKey.black{top:0;width:34px;height:136px;border-radius:0 0 11px 11px;background:linear-gradient(180deg,#221331,#05030b);color:#f5c84b;z-index:2;box-shadow:0 10px 18px rgba(0,0,0,.55),0 0 14px rgba(139,44,255,.16)}.jpacKey span{pointer-events:none;font-size:.72rem;margin-bottom:10px}.jpacKey.black span{margin-bottom:8px}.jpacKey.active{filter:brightness(1.22);box-shadow:0 0 26px rgba(36,231,255,.40),inset 0 0 20px rgba(245,200,75,.25)}.jpacChordGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;margin-top:14px}.jpacChordPad{border:1px solid rgba(245,200,75,.24);background:rgba(245,200,75,.08);color:#fbf7ff;border-radius:14px;padding:10px;cursor:pointer;text-align:center}.jpacChordPad strong{display:block;color:#f5c84b;font-size:1.05rem}.jpacChordPad small{color:#bfaee0}.jpacPianoStatus{margin-top:12px;color:#bfaee0;font-size:.86rem}.jpacPianoStatus b{color:#36f6a6}@media(max-width:700px){.jpacKeyboard{width:820px;height:198px}.jpacKey.white{width:47px;height:194px}.jpacKey.black{width:30px;height:116px}.jpacKeyboardScroller{min-height:225px}}
+</style>
+<script id="jpac-working-piano-extension-script">
+(function(){
+  if(window.JPAC_WORKING_PIANO_EXTENSION_READY)return;
+  window.JPAC_WORKING_PIANO_EXTENSION_READY=true;
+  const NOTE_INDEX={C:0,'C#':1,D:2,'D#':3,E:4,F:5,'F#':6,G:7,'G#':8,A:9,'A#':10,B:11};
+  const WHITE=['C','D','E','F','G','A','B','C','D','E','F','G','A','B','C','D','E'];
+  const BLACK_AFTER={C:'C#',D:'D#',F:'F#',G:'G#',A:'A#'};
+  const CHORDS={C:['C','E','G'],Dm:['D','F','A'],Em:['E','G','B'],F:['F','A','C'],G:['G','B','D'],Am:['A','C','E'],Bdim:['B','D','F'],Cmaj7:['C','E','G','B']};
+  let ctx, master;
+  function ensureAudio(){
+    if(!ctx){ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=.28; master.connect(ctx.destination)}
+    if(ctx.state==='suspended')ctx.resume();
+  }
+  function midi(note,oct){return (Number(oct)+1)*12+NOTE_INDEX[note]}
+  function freq(m){return 440*Math.pow(2,(m-69)/12)}
+  function playMidi(m,opts={}){
+    ensureAudio();
+    const now=ctx.currentTime;
+    const sound=document.getElementById('jpacPianoSound')?.value||'electric';
+    const sustain=document.getElementById('jpacPianoSustain')?.classList.contains('active');
+    const chorus=document.getElementById('jpacPianoChorus')?.classList.contains('active');
+    const presets={grand:['triangle','sine',1.25,5200,.22],electric:['sine','triangle',1.05,3600,.22],bell:['sine','square',1.5,6500,.16],organ:['sawtooth','triangle',1.15,2600,.17]};
+    const [type,type2,durBase,cutoff,gainBase]=presets[sound]||presets.electric;
+    const dur=sustain?durBase*2.2:durBase;
+    const velocity=opts.velocity||.88;
+    const out=ctx.createGain(); out.gain.value=gainBase*velocity; out.connect(master);
+    if(chorus){const del=ctx.createDelay(.04); const lfo=ctx.createOscillator(); const lg=ctx.createGain(); del.delayTime.value=.012; lfo.frequency.value=1.7; lg.gain.value=.006; lfo.connect(lg).connect(del.delayTime); lfo.start(now); out.connect(del).connect(master)}
+    [0,.007].forEach((det,i)=>{
+      const osc=ctx.createOscillator(); const env=ctx.createGain(); const fil=ctx.createBiquadFilter();
+      osc.type=i?type2:type; osc.frequency.value=freq(m)*(1+det); fil.type='lowpass'; fil.frequency.value=cutoff;
+      env.gain.setValueAtTime(.0001,now); env.gain.exponentialRampToValueAtTime(gainBase*velocity/(i?1.8:1),now+.018); env.gain.exponentialRampToValueAtTime(.0001,now+dur);
+      osc.connect(env).connect(fil).connect(out); osc.start(now); osc.stop(now+dur+.05);
+    });
+    document.querySelectorAll('.jpacKey[data-midi="'+m+'"]').forEach(k=>{k.classList.add('active');setTimeout(()=>k.classList.remove('active'),190)});
+    const st=document.getElementById('jpacPianoStatus'); if(st)st.innerHTML='<b>Playing:</b> '+(opts.label||m)+' · audio active';
+  }
+  function playNote(note,oct,label,velocity){playMidi(midi(note,oct),{label,velocity})}
+  function getOctave(){return Number(document.getElementById('jpacPianoOctave')?.value||4)}
+  function renderKeys(){
+    const root=document.getElementById('jpacWorkingKeyboard'); if(!root)return;
+    const octave=getOctave(); root.innerHTML='';
+    let whiteIndex=0;
+    WHITE.forEach((note,i)=>{
+      const oct=octave+Math.floor(i/7); const left=whiteIndex*55; const m=midi(note,oct);
+      const w=document.createElement('button'); w.type='button'; w.className='jpacKey white'; w.style.left=left+'px'; w.dataset.midi=m; w.dataset.note=note; w.dataset.oct=oct; w.innerHTML='<span>'+note+oct+'</span>'; root.appendChild(w);
+      if(BLACK_AFTER[note] && i<WHITE.length-1){const bn=BLACK_AFTER[note]; const bm=midi(bn,oct); const b=document.createElement('button'); b.type='button'; b.className='jpacKey black'; b.style.left=(left+38)+'px'; b.dataset.midi=bm; b.dataset.note=bn; b.dataset.oct=oct; b.innerHTML='<span>'+bn+'</span>'; root.appendChild(b)}
+      whiteIndex++;
+    });
+  }
+  function extensionHTML(){return '<div class="jpacPianoExt" data-jpac-extension="working-piano"><div class="jpacPianoTop"><div><h3>🎹 Working Virtual Piano</h3><p class="jpacPianoHint">Standalone JPAC piano extension. This version does not depend on the old instrument renderer, so the keyboard appears directly in the preview and live site.</p></div><span class="jpacPianoBadge">Audio Ready</span></div><div class="jpacPianoControls"><div class="jpacPianoField"><label>Sound Bank</label><select id="jpacPianoSound"><option value="electric">Electric Keys</option><option value="grand">Warm Grand</option><option value="bell">Bell Pad</option><option value="organ">Soft Organ</option></select></div><div class="jpacPianoField"><label>Octave</label><select id="jpacPianoOctave"><option value="3">Low</option><option value="4" selected>Middle</option><option value="5">High</option></select></div><div class="jpacPianoField"><label>Actions</label><div class="jpacPianoButtons"><button type="button" class="jpacPianoBtn" id="jpacPianoSustain">Sustain Off</button><button type="button" class="jpacPianoBtn" id="jpacPianoChorus">Chorus Off</button><button type="button" class="jpacPianoBtn primary" id="jpacPianoDemo">Play Demo Chord</button></div></div></div><div class="jpacKeyboardScroller"><div class="jpacKeyboard" id="jpacWorkingKeyboard"></div></div><div class="jpacChordGrid" id="jpacChordGrid"></div><div class="jpacPianoStatus" id="jpacPianoStatus"><b>Ready:</b> tap or click the keys. Computer keys: A W S E D F T G Y H U J K.</div></div>'}
+  function inject(){
+    const modules=[...document.querySelectorAll('[data-tool-module="piano"]')];
+    modules.forEach(mod=>{
+      if(mod.querySelector('[data-jpac-extension="working-piano"]'))return;
+      mod.innerHTML=extensionHTML();
+    });
+    if(document.querySelector('[data-jpac-extension="working-piano"]')) wire();
+  }
+  function wire(){
+    renderKeys();
+    const grid=document.getElementById('jpacChordGrid');
+    if(grid && !grid.dataset.ready){grid.dataset.ready='1'; grid.innerHTML=Object.keys(CHORDS).map(c=>'<button type="button" class="jpacChordPad" data-chord="'+c+'"><strong>'+c+'</strong><small>tap chord</small></button>').join('')}
+    document.getElementById('jpacPianoOctave')?.addEventListener('change',renderKeys);
+    const sus=document.getElementById('jpacPianoSustain'); if(sus&&!sus.dataset.ready){sus.dataset.ready='1';sus.onclick=()=>{sus.classList.toggle('active');sus.textContent=sus.classList.contains('active')?'Sustain On':'Sustain Off'}}
+    const cho=document.getElementById('jpacPianoChorus'); if(cho&&!cho.dataset.ready){cho.dataset.ready='1';cho.onclick=()=>{cho.classList.toggle('active');cho.textContent=cho.classList.contains('active')?'Chorus On':'Chorus Off'}}
+    const demo=document.getElementById('jpacPianoDemo'); if(demo&&!demo.dataset.ready){demo.dataset.ready='1';demo.onclick=()=>['C','E','G','B'].forEach((n,i)=>setTimeout(()=>playNote(n,getOctave(),n+getOctave(),.9),i*70))}
+  }
+  document.addEventListener('pointerdown',e=>{const k=e.target.closest('.jpacKey'); if(k){playMidi(Number(k.dataset.midi),{label:(k.dataset.note||'')+(k.dataset.oct||''),velocity:Math.max(.35,1-(e.offsetY/(k.clientHeight||1))*.45)})}});
+  document.addEventListener('click',e=>{const p=e.target.closest('.jpacChordPad[data-chord]'); if(p){const oct=getOctave(); (CHORDS[p.dataset.chord]||['C','E','G']).forEach((n,i)=>setTimeout(()=>playNote(n,oct,n+oct,.9),i*45))}});
+  document.addEventListener('keydown',e=>{if(e.target&&['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return; const keys={a:0,w:1,s:2,e:3,d:4,f:5,t:6,g:7,y:8,h:9,u:10,j:11,k:12}; const v=keys[e.key.toLowerCase()]; if(v!==undefined && document.querySelector('[data-tool-module="piano"].active .jpacPianoExt')){playMidi(midi('C',getOctave())+v,{label:'keyboard',velocity:.85})}});
+  const obs=new MutationObserver(()=>setTimeout(inject,50)); obs.observe(document.body,{childList:true,subtree:true});
+  window.addEventListener('load',()=>setTimeout(inject,150)); document.addEventListener('click',()=>setTimeout(inject,80)); setInterval(inject,800);
+})();
+</script>
+<!-- ================= END JPAC WORKING VIRTUAL PIANO EXTENSION ================= -->
+
 </body>
 </html>
