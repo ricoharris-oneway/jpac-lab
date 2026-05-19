@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>JPAC Lab Portal · DAW + Choreo + Admin + Virtual Instruments</title>
+<title>JPAC Lab Portal · DAW + Choreo + Admin</title>
 <style>
 :root{
   --bg:#05030a; --panel:#110821; --panel2:#160a2d; --ink:#fbf7ff; --muted:#bfaee0;
@@ -56,7 +56,19 @@ h1{font-size:clamp(1.05rem,2vw,1.55rem);margin:0;letter-spacing:.02em}.sub{color
 
 
 /* --- PHASE 3 EXISTING TOOL UPGRADES --- */
-.studioTabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}.studioTabs .btn.active{border-color:rgba(245,200,75,.62);box-shadow:0 0 20px rgba(245,200,75,.16);background:linear-gradient(135deg,rgba(245,200,75,.2),rgba(139,44,255,.22))}
+.studioTabs{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin:0 0 12px;
+  overflow-x:auto;
+  padding-bottom:6px;
+  max-width:100%;
+}
+.studioTabs::-webkit-scrollbar{height:8px}
+.studioTabs::-webkit-scrollbar-thumb{background:rgba(36,231,255,.35);border-radius:999px}
+.studioTabs .btn{flex:0 0 auto;white-space:nowrap}
+.studioTabs .btn.active{border-color:rgba(245,200,75,.62);box-shadow:0 0 20px rgba(245,200,75,.16);background:linear-gradient(135deg,rgba(245,200,75,.2),rgba(139,44,255,.22))}
 .toolDeck{display:grid;gap:12px}.toolModule{display:none}.toolModule.active{display:block;animation:moduleIn .22s ease-out}@keyframes moduleIn{from{opacity:.25;transform:translateY(8px)}to{opacity:1;transform:none}}
 .neoCard{background:rgba(0,0,0,.22);border:1px solid rgba(36,231,255,.13);border-radius:18px;padding:14px;box-shadow:inset 0 0 0 1px rgba(139,44,255,.08)}
 .choiceGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px}.choiceGrid .btn{justify-content:center;text-align:center}.resultBox{margin-top:10px;border-radius:14px;padding:11px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08);color:var(--muted)}
@@ -198,13 +210,12 @@ body.choreo-mode .panel.pad.choreo-toolbar{
 @media(max-width:700px){.pianoKeys{min-width:720px;height:190px}.pKey.white{width:50px;height:184px}.pKey.black{width:31px;height:112px}.fretboard{min-width:760px}}
 
 </style>
-<!-- JPAC LAB PATCH: Virtual Instruments visible for Student and Admin · 2026-05-18 -->
 </head>
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="brand"><div class="logo"></div><div><h1>JPAC Lab Portal <span style="color:var(--cyan)">DAW Edition</span></h1><div class="sub">Student login · admin controls · virtual piano/guitar · recording · visual meters · choreo scoring · activities</div></div></div>
-    <div class="session"><span class="chip"><span class="dot"></span><span id="sessionLabel">Not logged in</span></span><button class="btn small" data-mode-jump="instruments" type="button">🎹 Instruments</button><button class="btn small" id="logoutBtn">Logout</button></div>
+    <div class="brand"><div class="logo"></div><div><h1>JPAC Lab Portal <span style="color:var(--cyan)">DAW Edition</span></h1><div class="sub">Student login · admin controls · recording · visual meters · choreo scoring · activities</div></div></div>
+    <div class="session"><span class="chip"><span class="dot"></span><span id="sessionLabel">Not logged in</span></span><button class="btn small" id="logoutBtn">Logout</button></div>
   </header>
 
   <div id="loginView" class="login panel">
@@ -276,7 +287,7 @@ $('studentLoginBtn').onclick=()=>{const n=$('studentName').value.trim(), e=$('st
 $('adminLoginBtn').onclick=()=>{if($('adminPass').value!==ADMIN_CODE)return toast('Incorrect admin passcode.'); role='admin'; user='admin'; sessionStorage.setItem('jpac_session',JSON.stringify({role,user})); bootPortal()};
 $('logoutBtn').onclick=()=>{sessionStorage.removeItem('jpac_session');location.reload()};
 try{const s=JSON.parse(sessionStorage.getItem('jpac_session')||'null'); if(s){role=s.role;user=s.user; setTimeout(bootPortal,0)}}catch(e){}
-function buildNav(){const items=[['studio','Sound Studio Pro','Beat, harmony, vocals, production'],['instruments','🎹 Virtual Instruments','Piano, guitar, MIDI, chords, effects'],['creative','Creative Studio','Lyrics, flow, content creation'],['notation','Notation Trainer','Treble/bass clef and bars'],['choreo','Performance Studio','Mirror, stage presence, scoring'],['activities','Activities','Accordion activity list'],['rewards','Rewards','Awards and feedback']]; if(role==='admin')items.push(['admin','Admin Portal','All students and adjustments']); $('nav').innerHTML=items.map(i=>`<button data-mode="${i[0]}"><strong>${i[1]}</strong><span>${i[2]}</span></button>`).join(''); document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>setMode(b.dataset.mode))}
+function buildNav(){const items=[['studio','Sound Studio Pro','Beat, harmony, vocals, production'],['instruments','Virtual Instruments','Piano, guitar, MIDI, chords, effects'],['creative','Creative Studio','Lyrics, flow, content creation'],['notation','Notation Trainer','Treble/bass clef and bars'],['choreo','Performance Studio','Mirror, stage presence, scoring'],['activities','Activities','Accordion activity list'],['rewards','Rewards','Awards and feedback']]; if(role==='admin')items.push(['admin','Admin Portal','All students and adjustments']); $('nav').innerHTML=items.map(i=>`<button data-mode="${i[0]}"><strong>${i[1]}</strong><span>${i[2]}</span></button>`).join(''); document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>setMode(b.dataset.mode))}
 function setMode(m){
   mode=m;
   document.body.classList.toggle('choreo-mode', m === 'choreo');
@@ -496,8 +507,138 @@ function playGuitarMidi(n,velocity=.85){const sound=$('guitarSound')?.value||'cl
 function flashPianoKey(n){const el=document.querySelector(`[data-midi="${n}"]`); if(!el)return; el.classList.add('active'); setTimeout(()=>el.classList.remove('active'),180)}
 function renderVirtualPiano(){const root=$('pianoKeys'); if(!root)return; const octave=Number($('pianoOctave')?.value||4); const white=['C','D','E','F','G','A','B','C','D','E','F','G','A','B']; const blackMap={'C':'C#','D':'D#','F':'F#','G':'G#','A':'A#'}; root.innerHTML=''; white.forEach((n,i)=>{const oct=octave+Math.floor(i/7); const midi=noteToMidi(n,oct); const w=document.createElement('button'); w.className='pKey white'; w.dataset.midi=midi; w.innerHTML=`<span class="noteLbl">${n}${oct}</span>`; w.onpointerdown=e=>playPianoMidi(midi,Math.max(.25,1-(e.offsetY/(e.currentTarget.clientHeight||1))*.55)); root.appendChild(w); if(blackMap[n] && i<13){const bm=noteToMidi(blackMap[n],oct); const b=document.createElement('button'); b.className='pKey black'; b.dataset.midi=bm; b.style.left=(i*58+40)+'px'; b.innerHTML=`<span class="noteLbl">${blackMap[n]}</span>`; b.onpointerdown=e=>playPianoMidi(bm,Math.max(.25,1-(e.offsetY/(e.currentTarget.clientHeight||1))*.45)); root.appendChild(b)}}); const pads=$('pianoChordPads'); if(pads){pads.innerHTML=['C','Dm','Em','F','G','Am','Bdim','Cmaj7'].map(c=>`<button class="chordPad" data-chord="${c}"><strong>${c}</strong><div class="hint">tap chord</div></button>`).join(''); pads.querySelectorAll('.chordPad').forEach(p=>p.onclick=()=>{const base={'C':0,'Dm':2,'Em':4,'F':5,'G':7,'Am':9,'Bdim':11,'Cmaj7':0}[p.dataset.chord]; const old=$('pianoChordMode').value; $('pianoChordMode').value=p.dataset.chord.includes('m')&&!p.dataset.chord.includes('maj')?'minor':p.dataset.chord.includes('7')?'maj7':'major'; playPianoMidi(noteToMidi('C',octave)+base,.88); $('pianoChordMode').value=old; p.classList.add('active'); setTimeout(()=>p.classList.remove('active'),220)})}}
 function renderVirtualGuitar(){const fb=$('guitarFretboard'); if(!fb)return; const strings=[['E',64],['B',59],['G',55],['D',50],['A',45],['E',40]]; fb.innerHTML=strings.map((s,si)=>`<div class="gString"><div class="stringName">${s[0]}</div>${Array.from({length:12},(_,f)=>`<button class="fretCell" data-midi="${s[1]+f}" data-string="${si}" data-fret="${f}"><span>${f}</span></button>`).join('')}</div>`).join(''); fb.querySelectorAll('.fretCell').forEach(cell=>cell.onpointerdown=()=>{cell.classList.add('active'); playGuitarMidi(Number(cell.dataset.midi),.86); setTimeout(()=>cell.classList.remove('active'),220)}); const shapes=$('guitarChordShapes'); if(shapes){const chords={E:40,A:45,D:50,G:55,C:48,Am:45,Em:40,'G7':43}; shapes.innerHTML=Object.keys(chords).map(c=>`<button class="chordPad" data-root="${chords[c]}" data-name="${c}"><strong>${c}</strong><div class="hint">shape</div></button>`).join(''); shapes.querySelectorAll('.chordPad').forEach(p=>p.onclick=()=>{const old=$('guitarChordMode').value; const name=p.dataset.name; $('guitarChordMode').value=name.includes('m')?'minor':name.includes('7')?'dom7':'major'; playGuitarMidi(Number(p.dataset.root),.9); $('guitarChordMode').value=old; p.classList.add('active'); setTimeout(()=>p.classList.remove('active'),220)})}}
-async function enableMidi(){if(!navigator.requestMIDIAccess){toast('This browser does not support Web MIDI. Chrome/Edge on HTTPS is recommended.');return} try{const access=await navigator.requestMIDIAccess(); const status=$('midiStatus'); if(status)status.innerHTML='<span class="dot"></span>MIDI enabled'; for(const input of access.inputs.values()){input.onmidimessage=e=>{const [cmd,note,vel]=e.data; const on=(cmd&0xf0)===0x90&&vel>0; if(on){if(document.querySelector('[data-tool-module="piano"].active'))playPianoMidi(note,vel/127); else playGuitarMidi(note,vel/127)}}} toast('MIDI keyboard connected.');}catch(e){toast('MIDI permission was not granted.')}}
+async function enableMidi(){if(!navigator.requestMIDIAccess){toast('This browser does not support Web MIDI. Chrome/Edge on HTTPS is recommended.');return} try{const access=await navigator.requestMIDIAccess(); const status=$('midiStatus'); if(status)status.innerHTML='<span class="dot"></span>MIDI enabled'; for(const input of access.inputs.values()){input.onmidimessage=e=>{const [cmd,note,vel]=e.data; const on=(cmd&0xf0)===0x90&&vel>0; if(on){if(document.querySelector('[data-tool-module="piano"].active'))playPianoMidi(note,vel/127); else if(document.querySelector('[data-tool-module="guitar"].active'))playGuitarMidi(note,vel/127); else playPianoMidi(note,vel/127)}}} toast('MIDI keyboard connected.');}catch(e){toast('MIDI permission was not granted.')}}
 function wireVirtualInstruments(){renderVirtualPiano(); renderVirtualGuitar(); const po=$('pianoOctave'); if(po)po.onchange=renderVirtualPiano; const sus=$('pianoSustainBtn'); if(sus)sus.onclick=()=>{sus.classList.toggle('active');sus.textContent=sus.classList.contains('active')?'Sustain On':'Sustain Off'}; const chor=$('pianoChorusBtn'); if(chor)chor.onclick=()=>{chor.classList.toggle('active');chor.textContent=chor.classList.contains('active')?'Chorus On':'Chorus Off'}; const midi=$('enableMidiBtn'); if(midi)midi.onclick=enableMidi; const demo=$('pianoDemoChord'); if(demo)demo.onclick=()=>{const old=$('pianoChordMode').value; $('pianoChordMode').value='maj7'; playPianoMidi(noteToMidi('C',Number($('pianoOctave')?.value||4)),.9); $('pianoChordMode').value=old}; const fp=$('finishPianoLab'); if(fp)fp.onclick=()=>addStudentXP(15,'Virtual piano practice complete'); ['gtrDriveBtn','gtrChorusBtn','gtrDelayBtn','gtrReverbBtn'].forEach(id=>{const b=$(id); if(b)b.onclick=()=>{b.classList.toggle('active'); const active=['Drive','Chorus','Delay','Room'].filter((n,i)=>[$('gtrDriveBtn'),$('gtrChorusBtn'),$('gtrDelayBtn'),$('gtrReverbBtn')][i]?.classList.contains('active')); const st=$('guitarFxStatus'); if(st)st.textContent=active.length?'Pedals: '+active.join(', '):'Pedals clean'}}); const riff=$('guitarDemoRiff'); if(riff)riff.onclick=()=>[40,43,45,47,52,47,45,43].forEach((n,i)=>setTimeout(()=>playGuitarMidi(n,.88),i*150)); const fg=$('finishGuitarLab'); if(fg)fg.onclick=()=>addStudentXP(15,'Virtual guitar practice complete'); document.onkeydown=(e)=>{if(e.target&&['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return; const map={a:0,w:1,s:2,e:3,d:4,f:5,t:6,g:7,y:8,h:9,u:10,j:11,k:12}; const key=e.key.toLowerCase(); if(map[key]!==undefined && document.querySelector('[data-tool-module="piano"].active')){playPianoMidi(noteToMidi('C',Number($('pianoOctave')?.value||4))+map[key],.82)}}}
+
+
+
+/* --- JPAC HOTFIX: render all virtual instrument surfaces, even with duplicate tab panels --- */
+function renderVirtualPiano(){
+  const roots=[...document.querySelectorAll('#pianoKeys')];
+  if(!roots.length)return;
+  const octave=Number($('pianoOctave')?.value||4);
+  const white=['C','D','E','F','G','A','B','C','D','E','F','G','A','B'];
+  const blackMap={'C':'C#','D':'D#','F':'F#','G':'G#','A':'A#'};
+  roots.forEach(root=>{
+    root.innerHTML='';
+    white.forEach((n,i)=>{
+      const oct=octave+Math.floor(i/7);
+      const midi=noteToMidi(n,oct);
+      const w=document.createElement('button');
+      w.type='button';
+      w.className='pKey white';
+      w.dataset.midi=midi;
+      w.innerHTML=`<span class="noteLbl">${n}${oct}</span>`;
+      w.onpointerdown=e=>playPianoMidi(midi,Math.max(.25,1-(e.offsetY/(e.currentTarget.clientHeight||1))*.55));
+      root.appendChild(w);
+      if(blackMap[n] && i<13){
+        const bm=noteToMidi(blackMap[n],oct);
+        const b=document.createElement('button');
+        b.type='button';
+        b.className='pKey black';
+        b.dataset.midi=bm;
+        b.style.left=(i*58+40)+'px';
+        b.innerHTML=`<span class="noteLbl">${blackMap[n]}</span>`;
+        b.onpointerdown=e=>playPianoMidi(bm,Math.max(.25,1-(e.offsetY/(e.currentTarget.clientHeight||1))*.45));
+        root.appendChild(b);
+      }
+    });
+  });
+  [...document.querySelectorAll('#pianoChordPads')].forEach(pads=>{
+    pads.innerHTML=['C','Dm','Em','F','G','Am','Bdim','Cmaj7'].map(c=>`<button type="button" class="chordPad" data-chord="${c}"><strong>${c}</strong><div class="hint">tap chord</div></button>`).join('');
+    pads.querySelectorAll('.chordPad').forEach(p=>{
+      p.onclick=()=>{
+        const base={'C':0,'Dm':2,'Em':4,'F':5,'G':7,'Am':9,'Bdim':11,'Cmaj7':0}[p.dataset.chord]||0;
+        const chordSelect=$('pianoChordMode');
+        const old=chordSelect?chordSelect.value:'single';
+        if(chordSelect) chordSelect.value=p.dataset.chord.includes('m')&&!p.dataset.chord.includes('maj')?'minor':p.dataset.chord.includes('7')?'maj7':'major';
+        playPianoMidi(noteToMidi('C',octave)+base,.88);
+        if(chordSelect) chordSelect.value=old;
+        p.classList.add('active'); setTimeout(()=>p.classList.remove('active'),220);
+      };
+    });
+  });
+}
+function flashPianoKey(n){
+  document.querySelectorAll(`[data-midi="${n}"]`).forEach(el=>{
+    el.classList.add('active');
+    setTimeout(()=>el.classList.remove('active'),180);
+  });
+}
+function renderVirtualGuitar(){
+  const boards=[...document.querySelectorAll('#guitarFretboard')];
+  if(!boards.length)return;
+  const strings=[['E',64],['B',59],['G',55],['D',50],['A',45],['E',40]];
+  boards.forEach(fb=>{
+    fb.innerHTML=strings.map((s,si)=>`<div class="gString"><div class="stringName">${s[0]}</div>${Array.from({length:12},(_,f)=>`<button type="button" class="fretCell" data-midi="${s[1]+f}" data-string="${si}" data-fret="${f}"><span>${f}</span></button>`).join('')}</div>`).join('');
+    fb.querySelectorAll('.fretCell').forEach(cell=>{
+      cell.onpointerdown=()=>{
+        cell.classList.add('active');
+        playGuitarMidi(Number(cell.dataset.midi),.86);
+        setTimeout(()=>cell.classList.remove('active'),220);
+      };
+    });
+  });
+  [...document.querySelectorAll('#guitarChordShapes')].forEach(shapes=>{
+    const chords={E:40,A:45,D:50,G:55,C:48,Am:45,Em:40,'G7':43};
+    shapes.innerHTML=Object.keys(chords).map(c=>`<button type="button" class="chordPad" data-root="${chords[c]}" data-name="${c}"><strong>${c}</strong><div class="hint">shape</div></button>`).join('');
+    shapes.querySelectorAll('.chordPad').forEach(p=>{
+      p.onclick=()=>{
+        const modeSelect=$('guitarChordMode');
+        const old=modeSelect?modeSelect.value:'single';
+        const name=p.dataset.name;
+        if(modeSelect) modeSelect.value=name.includes('m')?'minor':name.includes('7')?'dom7':'major';
+        playGuitarMidi(Number(p.dataset.root),.9);
+        if(modeSelect) modeSelect.value=old;
+        p.classList.add('active'); setTimeout(()=>p.classList.remove('active'),220);
+      };
+    });
+  });
+}
+
+function renderInstruments(w){
+  w.innerHTML=`${flowMapHTML('Virtual Instrument Lab','Dedicated full-size piano and guitar tools for classes, admin demos, MIDI, chords, sustain, chorus, pedals, and sound-bank practice.',[
+    {icon:'🎹',title:'Virtual Piano',desc:'Touch keys, MIDI, sustain, chorus',note:'Use the Piano tab for touch keys, MIDI keyboard input, chord modes, sustain, chorus, and piano sound-bank practice.',meter:78},
+    {icon:'🎸',title:'Virtual Guitar',desc:'Fretboard, chord shapes, pedals',note:'Use the Guitar tab for fretboard practice, chord shapes, guitar tones, drive, chorus, delay, and room effects.',meter:76},
+    {icon:'🎼',title:'Chord Mode',desc:'Major, minor, 7ths, sus, power',note:'Chord functions help students hear harmony while learning piano and guitar patterns.',meter:68},
+    {icon:'🎛️',title:'Sound Bank',desc:'Built-in tones + sample upload',note:'Built-in synth sounds work immediately. Optional audio sample uploads can support custom JPAC sound banks later.',meter:62},
+    {icon:'🏆',title:'Practice XP',desc:'Complete instrument practice',note:'Students can complete piano or guitar practice for XP. Admin can use this page for demos and instruction.',meter:72}
+  ])}
+  ${renderStudioTabs('instrument',[{id:'piano',icon:'🎹',title:'Virtual Piano'},{id:'guitar',icon:'🎸',title:'Virtual Guitar'}])}
+  <div class="toolDeck">
+    <div class="toolModule active" data-group="instrument" data-tool-module="piano">
+      <div class="instrumentLab">
+        <div class="panel pad">
+          <div class="title"><div><h3>Touch-Sensitive Virtual Piano</h3><div class="hint">Play by touch, mouse, computer keyboard, or MIDI keyboard. Velocity responds to vertical touch position.</div></div><span class="badge">MIDI Ready</span></div>
+          <div class="instrumentToolbar">
+            <div class="field"><label>Piano Sound Bank</label><select id="pianoSound"><option value="grand">Warm Grand</option><option value="electric">Electric Keys</option><option value="bell">Bell Pad</option><option value="organ">Soft Organ</option></select></div>
+            <div class="field"><label>Chord Function</label><select id="pianoChordMode"><option value="single">Single Notes</option><option value="major">Major Chords</option><option value="minor">Minor Chords</option><option value="maj7">Major 7</option><option value="min7">Minor 7</option><option value="sus4">Sus4</option></select></div>
+            <div class="field"><label>Octave</label><select id="pianoOctave"><option value="3">Low</option><option value="4" selected>Middle</option><option value="5">High</option></select></div>
+            <div class="field"><label>Action</label><div class="row"><button class="btn" id="pianoSustainBtn">Sustain Off</button><button class="btn" id="pianoChorusBtn">Chorus Off</button></div></div>
+          </div>
+          <div class="instrumentSurface"><div class="pianoWrap"><div class="pianoKeys" id="pianoKeys"></div></div></div>
+          <div class="row" style="margin-top:12px"><button class="btn primary" id="enableMidiBtn">Enable MIDI</button><button class="btn" id="pianoDemoChord">Play Demo Chord</button><button class="btn" id="finishPianoLab">Complete Piano Practice</button><span class="chip" id="midiStatus"><span class="dot"></span>MIDI not enabled</span></div>
+        </div>
+        <div class="grid2"><div class="neoCard"><h4>Chord Pads</h4><div class="chordPads" id="pianoChordPads"></div></div><div class="neoCard"><h4>Sample Bank Option</h4><div class="sampleDrop"><input type="file" id="pianoSampleUpload" accept="audio/*" multiple><p class="hint">Optional: upload real piano samples later. This version includes a lightweight built-in synth bank so the tool works immediately.</p></div></div></div>
+      </div>
+    </div>
+    <div class="toolModule" data-group="instrument" data-tool-module="guitar">
+      <div class="instrumentLab">
+        <div class="panel pad">
+          <div class="title"><div><h3>Touch-Sensitive Virtual Guitar</h3><div class="hint">Tap strings/frets, use chord shapes, switch guitar tones, and add pedal-style effects for learning.</div></div><span class="badge">Guitar Lab</span></div>
+          <div class="instrumentToolbar">
+            <div class="field"><label>Guitar Sound Bank</label><select id="guitarSound"><option value="clean">Clean Electric</option><option value="acoustic">Acoustic</option><option value="jazz">Warm Jazz</option><option value="lead">Lead Synth Guitar</option></select></div>
+            <div class="field"><label>Chord Function</label><select id="guitarChordMode"><option value="single">Single Notes</option><option value="major">Major Chords</option><option value="minor">Minor Chords</option><option value="power">Power Chords</option><option value="dom7">Dominant 7</option></select></div>
+            <div class="field"><label>Pick / Sustain</label><select id="guitarArticulation"><option value="pluck">Short Pluck</option><option value="sustain">Sustained Note</option><option value="muted">Palm Mute</option></select></div>
+            <div class="field"><label>Pedal Bank</label><div class="fxRack"><button class="btn small" id="gtrDriveBtn">Drive</button><button class="btn small" id="gtrChorusBtn">Chorus</button><button class="btn small" id="gtrDelayBtn">Delay</button><button class="btn small" id="gtrReverbBtn">Room</button></div></div>
+          </div>
+          <div class="guitarStage"><div class="guitarNeck"><div class="fretboard" id="guitarFretboard"></div></div><div class="grid2"><div class="neoCard"><h4>Chord Shapes</h4><div class="guitarChordShapes" id="guitarChordShapes"></div></div><div class="neoCard"><h4>Guitar Samples</h4><div class="sampleDrop"><input type="file" id="guitarSampleUpload" accept="audio/*" multiple><p class="hint">Optional: upload plucks, strums, or pedal tones later. Built-in tones are included for immediate classroom use.</p></div></div></div></div>
+          <div class="row" style="margin-top:12px"><button class="btn primary" id="guitarDemoRiff">Play Demo Riff</button><button class="btn" id="finishGuitarLab">Complete Guitar Practice</button><span class="chip" id="guitarFxStatus">Pedals clean</span></div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
 
 function renderWorkspace(){const w=$('workspace'); if(mode==='studio')renderStudio(w); if(mode==='instruments')renderInstruments(w); if(mode==='creative')renderCreative(w); if(mode==='notation')renderNotation(w); if(mode==='choreo')renderChoreo(w); if(mode==='activities')renderActivities(w); if(mode==='rewards')renderRewards(w); if(mode==='admin')renderAdmin(w); wireFlowCharts(); wirePhase3Tools(); wirePhase4Tools(); wireVirtualInstruments(); if(typeof phase6AfterRender==='function')phase6AfterRender()}
 function renderStudio(w){w.innerHTML=`${flowMapHTML('Sound Studio Pro Flow','Build sound in a connected path: tune, create, arrange, record, and challenge yourself.',[
@@ -507,10 +648,10 @@ function renderStudio(w){w.innerHTML=`${flowMapHTML('Sound Studio Pro Flow','Bui
   {icon:'🎙️',title:'Vocal Trainer',desc:'Pitch, level, breath, tone',note:'Use target notes, mic input, and the selected visual meter to practice vocal control.',meter:61},
   {icon:'🏆',title:'XP Output',desc:'Record, submit, earn rewards',note:'Finished recordings and completed activities save to the student profile and reward system.',meter:82}
 ])}
-<div class="studioLauncher" style="margin-bottom:12px"><div class="launchCard" data-launch-mode="instruments"><strong>🎹 Open Virtual Piano + Guitar Lab</strong><p class="hint">Dedicated full-size tools for MIDI, chords, sustain, chorus, guitar pedals, and sound banks.</p></div><div class="launchCard" data-launch-mode="studio"><strong>🥁 Stay in Sound Studio Pro</strong><p class="hint">Use the tabs below for beat, piano, guitar, harmony, vocal, and producer work.</p></div></div>${renderStudioTabs('sound',[{id:'beat',icon:'🥁',title:'Beat Builder'},{id:'piano',icon:'🎹',title:'Virtual Piano'},{id:'guitar',icon:'🎸',title:'Virtual Guitar'},{id:'harmony',icon:'🎼',title:'Harmony Builder'},{id:'vocal',icon:'🎙️',title:'Vocal Trainer'},{id:'producer',icon:'🎚️',title:'Producer Challenge'}])}
+<div class="studioLauncher" style="margin-bottom:12px"><div class="launchCard" data-launch-mode="instruments"><strong>🎹 Open Virtual Piano + Guitar Lab</strong><p class="hint">Dedicated full-size tools for MIDI, chords, sustain, chorus, guitar pedals, and sound banks.</p></div><div class="launchCard" data-launch-mode="studio"><strong>🥁 Stay in Sound Studio Pro</strong><p class="hint">Use the tabs below for beat, piano, guitar, harmony, vocal, and producer work.</p></div></div>${renderStudioTabs('sound',[{id:'piano',icon:'🎹',title:'Virtual Piano'},{id:'guitar',icon:'🎸',title:'Virtual Guitar'},{id:'beat',icon:'🥁',title:'Beat Builder'},{id:'harmony',icon:'🎼',title:'Harmony Builder'},{id:'vocal',icon:'🎙️',title:'Vocal Trainer'},{id:'producer',icon:'🎚️',title:'Producer Challenge'}])}
 <div class="toolDeck">
-  <div class="toolModule active" data-group="sound" data-tool-module="beat"><div class="grid2"><div class="panel pad"><div class="title"><h3>16-Step Beat Builder</h3><span class="badge">Live synth</span></div><div class="seq" id="seqGrid"></div></div><div class="panel pad"><div class="title"><h3>Mic + Audio Tools</h3></div><div class="row"><button class="btn" id="enableMic">Enable Microphone</button><button class="btn" id="toneC">Play C</button><button class="btn" id="toneG">Play G</button><input type="file" id="audioUpload" accept="audio/*"></div><p class="hint">Hosted HTTPS allows browser mic/camera prompts. Vercel production URLs support this. Wix embeds may require iframe permission allowances.</p><div class="statgrid"><div class="stat"><div class="l">Input</div><div class="v" id="inputStat">--</div></div><div class="stat"><div class="l">Selected Meter</div><div class="v" id="meterStat">${selectedMeter}</div></div></div></div></div></div>
-  <div class="toolModule" data-group="sound" data-tool-module="piano"><div class="instrumentLab"><div class="panel pad"><div class="title"><div><h3>Touch-Sensitive Virtual Piano</h3><div class="hint">Play by touch, mouse, computer keyboard, or MIDI keyboard. Velocity responds to vertical touch position.</div></div><span class="badge">MIDI Ready</span></div><div class="instrumentToolbar"><div class="field"><label>Piano Sound Bank</label><select id="pianoSound"><option value="grand">Warm Grand</option><option value="electric">Electric Keys</option><option value="bell">Bell Pad</option><option value="organ">Soft Organ</option></select></div><div class="field"><label>Chord Function</label><select id="pianoChordMode"><option value="single">Single Notes</option><option value="major">Major Chords</option><option value="minor">Minor Chords</option><option value="maj7">Major 7</option><option value="min7">Minor 7</option><option value="sus4">Sus4</option></select></div><div class="field"><label>Octave</label><select id="pianoOctave"><option value="3">Low</option><option value="4" selected>Middle</option><option value="5">High</option></select></div><div class="field"><label>Action</label><div class="row"><button class="btn" id="pianoSustainBtn">Sustain Off</button><button class="btn" id="pianoChorusBtn">Chorus Off</button></div></div></div><div class="instrumentSurface"><div class="pianoWrap"><div class="pianoKeys" id="pianoKeys"></div></div></div><div class="row" style="margin-top:12px"><button class="btn primary" id="enableMidiBtn">Enable MIDI</button><button class="btn" id="pianoDemoChord">Play Demo Chord</button><button class="btn" id="finishPianoLab">Complete Piano Practice</button><span class="chip" id="midiStatus"><span class="dot"></span>MIDI not enabled</span></div></div><div class="grid2"><div class="neoCard"><h4>Chord Pads</h4><div class="chordPads" id="pianoChordPads"></div></div><div class="neoCard"><h4>Sample Bank Option</h4><div class="sampleDrop"><input type="file" id="pianoSampleUpload" accept="audio/*" multiple><p class="hint">Optional: upload real piano samples later. This version includes a lightweight built-in synth bank so the tool works immediately.</p></div></div></div></div></div>
+  <div class="toolModule" data-group="sound" data-tool-module="beat"><div class="grid2"><div class="panel pad"><div class="title"><h3>16-Step Beat Builder</h3><span class="badge">Live synth</span></div><div class="seq" id="seqGrid"></div></div><div class="panel pad"><div class="title"><h3>Mic + Audio Tools</h3></div><div class="row"><button class="btn" id="enableMic">Enable Microphone</button><button class="btn" id="toneC">Play C</button><button class="btn" id="toneG">Play G</button><input type="file" id="audioUpload" accept="audio/*"></div><p class="hint">Hosted HTTPS allows browser mic/camera prompts. Vercel production URLs support this. Wix embeds may require iframe permission allowances.</p><div class="statgrid"><div class="stat"><div class="l">Input</div><div class="v" id="inputStat">--</div></div><div class="stat"><div class="l">Selected Meter</div><div class="v" id="meterStat">${selectedMeter}</div></div></div></div></div></div>
+  <div class="toolModule active" data-group="sound" data-tool-module="piano"><div class="instrumentLab"><div class="panel pad"><div class="title"><div><h3>Touch-Sensitive Virtual Piano</h3><div class="hint">Play by touch, mouse, computer keyboard, or MIDI keyboard. Velocity responds to vertical touch position.</div></div><span class="badge">MIDI Ready</span></div><div class="instrumentToolbar"><div class="field"><label>Piano Sound Bank</label><select id="pianoSound"><option value="grand">Warm Grand</option><option value="electric">Electric Keys</option><option value="bell">Bell Pad</option><option value="organ">Soft Organ</option></select></div><div class="field"><label>Chord Function</label><select id="pianoChordMode"><option value="single">Single Notes</option><option value="major">Major Chords</option><option value="minor">Minor Chords</option><option value="maj7">Major 7</option><option value="min7">Minor 7</option><option value="sus4">Sus4</option></select></div><div class="field"><label>Octave</label><select id="pianoOctave"><option value="3">Low</option><option value="4" selected>Middle</option><option value="5">High</option></select></div><div class="field"><label>Action</label><div class="row"><button class="btn" id="pianoSustainBtn">Sustain Off</button><button class="btn" id="pianoChorusBtn">Chorus Off</button></div></div></div><div class="instrumentSurface"><div class="pianoWrap"><div class="pianoKeys" id="pianoKeys"></div></div></div><div class="row" style="margin-top:12px"><button class="btn primary" id="enableMidiBtn">Enable MIDI</button><button class="btn" id="pianoDemoChord">Play Demo Chord</button><button class="btn" id="finishPianoLab">Complete Piano Practice</button><span class="chip" id="midiStatus"><span class="dot"></span>MIDI not enabled</span></div></div><div class="grid2"><div class="neoCard"><h4>Chord Pads</h4><div class="chordPads" id="pianoChordPads"></div></div><div class="neoCard"><h4>Sample Bank Option</h4><div class="sampleDrop"><input type="file" id="pianoSampleUpload" accept="audio/*" multiple><p class="hint">Optional: upload real piano samples later. This version includes a lightweight built-in synth bank so the tool works immediately.</p></div></div></div></div></div>
   <div class="toolModule" data-group="sound" data-tool-module="guitar"><div class="instrumentLab"><div class="panel pad"><div class="title"><div><h3>Touch-Sensitive Virtual Guitar</h3><div class="hint">Tap strings/frets, use chord shapes, switch guitar tones, and add pedal-style effects for learning.</div></div><span class="badge">Guitar Lab</span></div><div class="instrumentToolbar"><div class="field"><label>Guitar Sound Bank</label><select id="guitarSound"><option value="clean">Clean Electric</option><option value="acoustic">Acoustic</option><option value="jazz">Warm Jazz</option><option value="lead">Lead Synth Guitar</option></select></div><div class="field"><label>Chord Function</label><select id="guitarChordMode"><option value="single">Single Notes</option><option value="major">Major Chords</option><option value="minor">Minor Chords</option><option value="power">Power Chords</option><option value="dom7">Dominant 7</option></select></div><div class="field"><label>Pick / Sustain</label><select id="guitarArticulation"><option value="pluck">Short Pluck</option><option value="sustain">Sustained Note</option><option value="muted">Palm Mute</option></select></div><div class="field"><label>Pedal Bank</label><div class="fxRack"><button class="btn small" id="gtrDriveBtn">Drive</button><button class="btn small" id="gtrChorusBtn">Chorus</button><button class="btn small" id="gtrDelayBtn">Delay</button><button class="btn small" id="gtrReverbBtn">Room</button></div></div></div><div class="guitarStage"><div class="guitarNeck"><div class="fretboard" id="guitarFretboard"></div></div><div class="grid2"><div class="neoCard"><h4>Chord Shapes</h4><div class="guitarChordShapes" id="guitarChordShapes"></div></div><div class="neoCard"><h4>Guitar Samples</h4><div class="sampleDrop"><input type="file" id="guitarSampleUpload" accept="audio/*" multiple><p class="hint">Optional: upload plucks, strums, or pedal tones later. Built-in tones are included for immediate classroom use.</p></div></div></div></div><div class="row" style="margin-top:12px"><button class="btn primary" id="guitarDemoRiff">Play Demo Riff</button><button class="btn" id="finishGuitarLab">Complete Guitar Practice</button><span class="chip" id="guitarFxStatus">Pedals clean</span></div></div></div></div>
   <div class="toolModule" data-group="sound" data-tool-module="harmony"><div class="panel pad"><div class="title"><h3>Smart Harmony Builder</h3><span class="badge">Phase 3</span></div><div class="grid3"><div class="field"><label>Key</label><select id="harmonyKey"><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option><option>A</option><option>B</option></select></div><div class="field"><label>Style / Mood</label><select id="harmonyMood"><option>Major</option><option>Minor</option><option>Soul</option><option>Gospel</option><option>Pop</option></select></div><div class="field"><label>Action</label><button class="btn primary" id="buildChordBtn">Build Progression</button></div></div><div id="chordOutput" class="chordTiles"><div class="chordTile"><strong>C I</strong><span class="hint">start</span></div><div class="chordTile"><strong>C IV</strong><span class="hint">lift</span></div><div class="chordTile"><strong>C V</strong><span class="hint">tension</span></div><div class="chordTile"><strong>C vi</strong><span class="hint">color</span></div></div><div class="resultBox" id="harmonyNote">Choose a key and mood, then build a progression. This keeps harmony inside the Sound Studio to save app space.</div></div></div>
   <div class="toolModule" data-group="sound" data-tool-module="vocal"><div class="panel pad"><div class="title"><h3>Vocal Power Trainer</h3><span class="badge">Mic + Meter</span></div><div class="grid2"><div class="neoCard"><div class="stat"><div class="l">Target Note</div><div class="v" id="vocalTarget">--</div></div><div class="row" style="margin-top:10px"><button class="btn primary" id="vocalTargetBtn">Generate Target Note</button><button class="btn" onclick="document.getElementById('enableMic')?.click()">Enable Mic</button></div><div class="resultBox" id="vocalTip">Generate a target, match the note, and watch the selected meter for steady tone.</div></div><div class="neoCard"><h4>Vocal Focus</h4><div class="choiceGrid"><button class="btn small">Pitch</button><button class="btn small">Breath</button><button class="btn small">Tone</button><button class="btn small">Power</button></div><p class="hint">This keeps vocal training lightweight while using the existing visual meter engine.</p></div></div></div></div>
@@ -573,6 +714,10 @@ function renderAdmin(w){
     {icon:'🏆',title:'Reward',desc:'Award badge or certificate',note:'Issue awards, adjust XP, or add a certificate-style achievement note.',meter:75},
     {icon:'🔄',title:'Sync / Export',desc:'JSON, CSV, webhook',note:'Export locally or send a selected student update to your Apps Script webhook.',meter:66}
   ])}
+  <div class="studioLauncher" style="margin-bottom:12px">
+    <div class="launchCard" data-launch-mode="instruments"><strong>🎹🎸 Open Virtual Piano + Guitar</strong><p class="hint">Admin shortcut to the dedicated instrument tools.</p></div>
+    <div class="launchCard" data-launch-mode="studio"><strong>🎛️ Open Sound Studio Pro</strong><p class="hint">Beat Builder, harmony, vocal trainer, and production tools.</p></div>
+  </div>
   <div class="adminConsole">
     <div class="panel pad"><div class="title"><h3>Student Directory</h3><span class="badge">${sum.students.length} profiles</span></div><div class="adminSearchBar"><input id="adminStudentSearch" placeholder="Search name or email"><select id="adminTrackFilter"><option value="">All Tracks</option>${tracks.map(t=>`<option>${t}</option>`).join('')}</select></div><div class="adminList" id="adminStudentList"></div></div>
     <div class="adminTools"><div id="adminEditor" class="panel pad"><h3>Choose a student</h3><p class="hint">Select a student from the directory to view progress, issue awards, add feedback, update XP, and sync.</p></div>
@@ -638,7 +783,7 @@ function exportStudentCsv(){
 async function loadSheetActivities(){const url=state.settings.sheetCsvUrl; if(!url)return toast('Paste a published Google Sheet CSV URL first.'); try{const txt=await fetch(url).then(r=>r.text()); const rows=parseCsv(txt); const heads=rows.shift().map(h=>h.toLowerCase().trim()); const get=(r,n)=>r[heads.indexOf(n)]||''; state.activities=rows.filter(r=>r.length).map((r,i)=>({id:get(r,'id')||'sheet'+i,title:get(r,'title')||'Untitled',type:get(r,'type')||'General',track:get(r,'track')||'All',xp:Number(get(r,'xp')||10),desc:get(r,'description')||get(r,'desc')||'',steps:String(get(r,'steps')||'Complete activity').split('|')})); save(); toast('Activities loaded from Google Sheet CSV.'); renderWorkspace()}catch(e){toast('Could not load Google Sheet CSV. Make sure it is published to the web.')}}
 function parseCsv(t){const rows=[];let row=[],cur='',q=false;for(let i=0;i<t.length;i++){const c=t[i],n=t[i+1];if(c=='"'&&q&&n=='"'){cur+='"';i++}else if(c=='"')q=!q;else if(c==','&&!q){row.push(cur);cur=''}else if((c=='\n'||c=='\r')&&!q){if(cur||row.length){row.push(cur);rows.push(row);row=[];cur=''} if(c=='\r'&&n=='\n')i++}else cur+=c} if(cur||row.length){row.push(cur);rows.push(row)} return rows}
 async function syncToWebhook(payload){const url=state.settings.appsScriptUrl; if(!url)return toast('Add Apps Script webhook URL first.'); try{await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); toast('Sync request sent.')}catch(e){toast('Sync failed. Check webhook URL.')}}
-function renderRight(){const r=$('rightPane'); if(role==='admin'){r.innerHTML=`<div class="panel pad"><div class="title"><h3>Admin Snapshot</h3></div><div class="statgrid"><div class="stat"><div class="l">Students</div><div class="v">${Object.keys(state.students).length}</div></div><div class="stat"><div class="l">Activities</div><div class="v">${state.activities.length}</div></div></div><div class="row" style="margin-top:12px"><button class="btn primary small" data-mode-jump="instruments" type="button">🎹 Open Instruments</button><button class="btn small" data-mode-jump="studio" type="button">Sound Studio</button></div><p class="hint">Admin can open Virtual Piano/Guitar from the sidebar, this shortcut, or the Admin Command Center cards.</p></div>`;return} const s=currentStudent(); r.innerHTML=`<div class="panel pad"><div class="title"><h3>Student Record</h3></div><div class="stat"><div class="l">Name</div><div class="v">${s?.name||''}</div></div><div class="stat"><div class="l">Track</div><div class="v">${s?.track||''}</div></div><h4>Latest Feedback</h4>${s?.feedback?.slice(-3).reverse().map(f=>`<div class="stat"><div class="hint">${f.note}</div></div>`).join('')||'<p class="hint">No feedback yet.</p>'}</div>`}
+function renderRight(){const r=$('rightPane'); if(role==='admin'){r.innerHTML=`<div class="panel pad"><div class="title"><h3>Admin Snapshot</h3></div><div class="statgrid"><div class="stat"><div class="l">Students</div><div class="v">${Object.keys(state.students).length}</div></div><div class="stat"><div class="l">Activities</div><div class="v">${state.activities.length}</div></div></div><p class="hint">Use Admin Portal to adjust student XP, rewards, feedback, and activities. Use pane edges to resize your view.</p></div>`;return} const s=currentStudent(); r.innerHTML=`<div class="panel pad"><div class="title"><h3>Student Record</h3></div><div class="stat"><div class="l">Name</div><div class="v">${s?.name||''}</div></div><div class="stat"><div class="l">Track</div><div class="v">${s?.track||''}</div></div><h4>Latest Feedback</h4>${s?.feedback?.slice(-3).reverse().map(f=>`<div class="stat"><div class="hint">${f.note}</div></div>`).join('')||'<p class="hint">No feedback yet.</p>'}</div>`}
 function updateStats(){let s=role==='student'?currentStudent():null; const acts=s?Object.keys(s.completed||{}).length:0, pct=state.activities.length?Math.round(acts/state.activities.length*100):0; $('xpView').textContent=s?s.xp:Object.values(state.students).reduce((a,b)=>a+b.xp,0); $('awardView').textContent=s?s.awards.length:Object.values(state.students).reduce((a,b)=>a+b.awards.length,0); $('actView').textContent=s?pct+'%':state.activities.length; $('recView').textContent=s?s.recordings.length:'All'; $('progressFill').style.width=(s?pct:100)+'%'}
 function initAudio(){if(audioCtx)return; audioCtx=new (window.AudioContext||window.webkitAudioContext)(); analyser=audioCtx.createAnalyser(); analyser.fftSize=2048; masterGain=audioCtx.createGain(); masterGain.gain.value=master; dest=audioCtx.createMediaStreamDestination(); masterGain.connect(analyser); analyser.connect(audioCtx.destination); analyser.connect(dest); draw()}
 function ensureAudio(){initAudio(); if(audioCtx.state==='suspended')audioCtx.resume()}
@@ -719,7 +864,7 @@ function exportPhase6Backup(){
 function phase6Shortcuts(e){
   if(e.key==='Escape'){document.body.classList.remove('mobile-nav-open'); const st=$('phase6Status'); if(st)st.classList.remove('show')}
   if(!e.altKey)return;
-  const modes=['studio','instruments','creative','notation','choreo','activities','rewards','admin'];
+  const modes=['studio','creative','notation','choreo','activities','rewards','admin'];
   const n=Number(e.key); if(n>=1&&n<=modes.length){const target=modes[n-1]; if(target==='admin'&&role!=='admin')return; e.preventDefault(); setMode(target); phase6Toast('Shortcut opened '+target+'.','ok')}
 }
 function phase6AfterRender(){
@@ -728,7 +873,6 @@ function phase6AfterRender(){
   document.body.classList.remove('mobile-nav-open');
 }
 
-document.addEventListener('click', e=>{const jump=e.target.closest?.('[data-mode-jump]'); if(jump){e.preventDefault(); setMode(jump.dataset.modeJump);}});
 function setupResize(){let active=null,start=0,startVal=0; document.querySelectorAll('.resize').forEach(r=>r.onmousedown=e=>{active=r.dataset.resize;start=e.clientX;startVal=parseInt(getComputedStyle(document.documentElement).getPropertyValue(active==='left'?'--side':'--right'));document.body.style.userSelect='none'}); window.onmousemove=e=>{if(!active)return; const delta=e.clientX-start; if(active==='left')document.documentElement.style.setProperty('--side',Math.max(220,Math.min(480,startVal+delta))+'px'); else document.documentElement.style.setProperty('--right',Math.max(260,Math.min(560,startVal-delta))+'px')}; window.onmouseup=()=>{active=null;document.body.style.userSelect='auto'}} setupResize(); initPhase6Polish();
 })();
 </script>
