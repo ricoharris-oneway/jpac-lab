@@ -873,6 +873,81 @@ function phase6AfterRender(){
   document.body.classList.remove('mobile-nav-open');
 }
 
+
+
+/* --- JPAC FINAL HOTFIX: keep piano/guitar visuals populated after every render/tab switch --- */
+function jpacForceInstrumentSurfaces(){
+  try{
+    const octave=Number(document.getElementById('pianoOctave')?.value||4);
+    const white=['C','D','E','F','G','A','B','C','D','E','F','G','A','B'];
+    const blackMap={'C':'C#','D':'D#','F':'F#','G':'G#','A':'A#'};
+    document.querySelectorAll('.pianoKeys').forEach(root=>{
+      if(root.children.length>0)return;
+      root.innerHTML='';
+      white.forEach((n,i)=>{
+        const oct=octave+Math.floor(i/7);
+        const midi=noteToMidi(n,oct);
+        const w=document.createElement('button');
+        w.type='button';
+        w.className='pKey white';
+        w.dataset.midi=midi;
+        w.innerHTML=`<span class="noteLbl">${n}${oct}</span>`;
+        w.addEventListener('pointerdown',e=>playPianoMidi(midi,Math.max(.25,1-(e.offsetY/(e.currentTarget.clientHeight||1))*.55)));
+        root.appendChild(w);
+        if(blackMap[n] && i<13){
+          const bm=noteToMidi(blackMap[n],oct);
+          const b=document.createElement('button');
+          b.type='button';
+          b.className='pKey black';
+          b.dataset.midi=bm;
+          b.style.left=(i*58+40)+'px';
+          b.innerHTML=`<span class="noteLbl">${blackMap[n]}</span>`;
+          b.addEventListener('pointerdown',e=>playPianoMidi(bm,Math.max(.25,1-(e.offsetY/(e.currentTarget.clientHeight||1))*.45)));
+          root.appendChild(b);
+        }
+      });
+    });
+    document.querySelectorAll('.chordPads[id="pianoChordPads"]').forEach(pads=>{
+      if(pads.children.length>0)return;
+      pads.innerHTML=['C','Dm','Em','F','G','Am','Bdim','Cmaj7'].map(c=>`<button type="button" class="chordPad" data-chord="${c}"><strong>${c}</strong><div class="hint">tap chord</div></button>`).join('');
+      pads.querySelectorAll('.chordPad').forEach(p=>p.addEventListener('click',()=>{
+        const base={'C':0,'Dm':2,'Em':4,'F':5,'G':7,'Am':9,'Bdim':11,'Cmaj7':0}[p.dataset.chord]||0;
+        const sel=document.getElementById('pianoChordMode');
+        const old=sel?sel.value:'single';
+        if(sel)sel.value=p.dataset.chord.includes('m')&&!p.dataset.chord.includes('maj')?'minor':p.dataset.chord.includes('7')?'maj7':'major';
+        playPianoMidi(noteToMidi('C',octave)+base,.88);
+        if(sel)sel.value=old;
+      }));
+    });
+    const strings=[['E',64],['B',59],['G',55],['D',50],['A',45],['E',40]];
+    document.querySelectorAll('.fretboard').forEach(fb=>{
+      if(fb.children.length>0)return;
+      fb.innerHTML=strings.map((st,si)=>`<div class="gString"><div class="stringName">${st[0]}</div>${Array.from({length:12},(_,f)=>`<button type="button" class="fretCell" data-midi="${st[1]+f}" data-string="${si}" data-fret="${f}"><span>${f}</span></button>`).join('')}</div>`).join('');
+      fb.querySelectorAll('.fretCell').forEach(cell=>cell.addEventListener('pointerdown',()=>{
+        cell.classList.add('active');
+        playGuitarMidi(Number(cell.dataset.midi),.86);
+        setTimeout(()=>cell.classList.remove('active'),220);
+      }));
+    });
+    document.querySelectorAll('.guitarChordShapes').forEach(shapes=>{
+      if(shapes.children.length>0)return;
+      const chords={E:40,A:45,D:50,G:55,C:48,Am:45,Em:40,'G7':43};
+      shapes.innerHTML=Object.keys(chords).map(c=>`<button type="button" class="chordPad" data-root="${chords[c]}" data-name="${c}"><strong>${c}</strong><div class="hint">shape</div></button>`).join('');
+      shapes.querySelectorAll('.chordPad').forEach(p=>p.addEventListener('click',()=>{
+        const sel=document.getElementById('guitarChordMode');
+        const old=sel?sel.value:'single';
+        const name=p.dataset.name||'';
+        if(sel)sel.value=name.includes('m')?'minor':name.includes('7')?'dom7':'major';
+        playGuitarMidi(Number(p.dataset.root),.9);
+        if(sel)sel.value=old;
+      }));
+    });
+  }catch(err){console.warn('JPAC instrument surface guard:',err);}
+}
+setInterval(jpacForceInstrumentSurfaces,400);
+window.addEventListener('load',()=>setTimeout(jpacForceInstrumentSurfaces,200));
+document.addEventListener('click',()=>setTimeout(jpacForceInstrumentSurfaces,120));
+
 function setupResize(){let active=null,start=0,startVal=0; document.querySelectorAll('.resize').forEach(r=>r.onmousedown=e=>{active=r.dataset.resize;start=e.clientX;startVal=parseInt(getComputedStyle(document.documentElement).getPropertyValue(active==='left'?'--side':'--right'));document.body.style.userSelect='none'}); window.onmousemove=e=>{if(!active)return; const delta=e.clientX-start; if(active==='left')document.documentElement.style.setProperty('--side',Math.max(220,Math.min(480,startVal+delta))+'px'); else document.documentElement.style.setProperty('--right',Math.max(260,Math.min(560,startVal-delta))+'px')}; window.onmouseup=()=>{active=null;document.body.style.userSelect='auto'}} setupResize(); initPhase6Polish();
 })();
 </script>
