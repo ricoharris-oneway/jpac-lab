@@ -288,7 +288,7 @@ body.choreo-mode .panel.pad.choreo-toolbar{
             <canvas id="mainVisual" width="920" height="300"></canvas>
           </div>
           <div class="inputMeterBox">
-            <div class="eqPanelTitle"><strong>Input / Output Level</strong><span id="meterStat" class="badge">Live</span></div>
+            <div class="eqPanelTitle"><strong>Live Input Meter</strong><span id="meterStat" class="badge">Input</span></div>
             <canvas id="selectedMeter" width="300" height="300"></canvas>
           </div>
         </div>
@@ -7397,8 +7397,9 @@ const DEFAULT_ACTIVITIES=[
   ]
  }
 ];
-let state=load(); let user=null; let role=null; let mode='studio'; let selectedMeter='eq';
-let audioCtx, analyser, masterGain, dest, mediaStream, micRecorder, micChunks=[], camStream, camRecorder, camChunks=[], playing=false, timer=null, step=0;
+let state=load(); let user=null; let role=null; let mode='studio';
+let audioCtx, outputAnalyser, inputAnalyser, masterGain, dest, mediaStream, micRecorder, micChunks=[], camStream, camRecorder, camChunks=[], playing=false, timer=null, step=0;
+let visualLoopStarted=false;
 let beatSchedulerTimer=null, nextStepTime=0, scheduleAheadTime=.12, lookaheadMs=25;
 let eq={low:0,mid:0,high:0}, tempo=100, master=.8;
 const STEPS=32;
@@ -8019,9 +8020,32 @@ function parseCsv(t){const rows=[];let row=[],cur='',q=false;for(let i=0;i<t.len
 async function syncToWebhook(payload){const url=state.settings.appsScriptUrl; if(!url)return toast('Add Apps Script webhook URL first.'); try{await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); toast('Sync request sent.')}catch(e){toast('Sync failed. Check webhook URL.')}}
 function renderRight(){const r=$('rightPane'); if(role==='admin'){r.innerHTML=`<div class="panel pad"><div class="title"><h3>Admin Snapshot</h3></div><div class="statgrid"><div class="stat"><div class="l">Students</div><div class="v">${Object.keys(state.students).length}</div></div><div class="stat"><div class="l">Activities</div><div class="v">${state.activities.length}</div></div></div><p class="hint">Use Admin Portal to adjust student completion records, feedback, and activities. Use pane edges to resize your view.</p></div>`;return} const s=currentStudent(); r.innerHTML=`<div class="panel pad"><div class="title"><h3>Student Record</h3></div><div class="stat"><div class="l">Name</div><div class="v">${s?.name||''}</div></div><div class="stat"><div class="l">Track</div><div class="v">${s?.track||''}</div></div><h4>Latest Feedback</h4>${s?.feedback?.slice(-3).reverse().map(f=>`<div class="stat"><div class="hint">${f.note}</div></div>`).join('')||'<p class="hint">No feedback yet.</p>'}</div>`}
 function updateStats(){let s=role==='student'?currentStudent():null; const acts=s?Object.keys(s.completed||{}).length:0, pct=state.activities.length?Math.round(acts/state.activities.length*100):0; const total=Object.values(state.students).reduce((a,b)=>a+Object.keys(b.completed||{}).length,0); $('xpView').textContent=s?acts:total; $('recognitionView').textContent=state.settings.appsScriptUrl?'On':'Local'; $('actView').textContent=s?pct+'%':state.activities.length; $('recView').textContent='Ready'; $('progressFill').style.width=(s?pct:100)+'%'}
-function initAudio(){if(audioCtx)return; audioCtx=new (window.AudioContext||window.webkitAudioContext)(); analyser=audioCtx.createAnalyser(); analyser.fftSize=2048; masterGain=audioCtx.createGain(); masterGain.gain.value=master; dest=audioCtx.createMediaStreamDestination(); masterGain.connect(analyser); analyser.connect(audioCtx.destination); analyser.connect(dest); draw()}
+function initAudio(){
+  if(audioCtx)return;
+  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  outputAnalyser=audioCtx.createAnalyser();
+  inputAnalyser=audioCtx.createAnalyser();
+  outputAnalyser.fftSize=2048;
+  inputAnalyser.fftSize=1024;
+  inputAnalyser.smoothingTimeConstant=.72;
+  outputAnalyser.smoothingTimeConstant=.78;
+  masterGain=audioCtx.createGain();
+  masterGain.gain.value=master;
+  dest=audioCtx.createMediaStreamDestination();
+  masterGain.connect(outputAnalyser);
+  outputAnalyser.connect(audioCtx.destination);
+  outputAnalyser.connect(dest);
+  draw();
+}
 function ensureAudio(){initAudio(); if(audioCtx.state==='suspended')audioCtx.resume()}
-async function enableMic(){ensureAudio(); mediaStream=await navigator.mediaDevices.getUserMedia({audio:true}); const src=audioCtx.createMediaStreamSource(mediaStream); src.connect(analyser); toast('Microphone enabled.')} 
+async function enableMic(){
+  ensureAudio();
+  if(mediaStream) mediaStream.getTracks().forEach(t=>t.stop());
+  mediaStream=await navigator.mediaDevices.getUserMedia({audio:true,echoCancellation:true,noiseSuppression:true,autoGainControl:false});
+  const src=audioCtx.createMediaStreamSource(mediaStream);
+  src.connect(inputAnalyser);
+  toast('Microphone enabled. Input meter is now live.');
+} 
 function playTone(freq){ensureAudio(); const o=audioCtx.createOscillator(),g=audioCtx.createGain(); o.type='triangle'; o.frequency.value=freq; g.gain.setValueAtTime(.0001,audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(.35,audioCtx.currentTime+.02); g.gain.exponentialRampToValueAtTime(.0001,audioCtx.currentTime+.7); o.connect(g).connect(masterGain); o.start(); o.stop(audioCtx.currentTime+.75)}
 
 function makeNoiseBuffer(){
@@ -8073,8 +8097,8 @@ function beatScheduler(){return;}
 function startSeq(){playing=false; toast('Beat Builder has been removed for stability. Complete Beat Builder activities in FL Studio or Cakewalk and submit them with your class assignment.');}
 function stopSeq(){playing=false; clearInterval(beatSchedulerTimer); clearTimeout(timer); beatSchedulerTimer=null; step=0;}
 
-$('playBtn').onclick=startSeq; $('stopBtn').onclick=stopSeq; $('tempo').oninput=e=>{tempo=+e.target.value;$('tempoTxt').textContent=tempo+' BPM'; if(playing&&audioCtx){nextStepTime=Math.max(nextStepTime,audioCtx.currentTime+.025);}}; $('master').oninput=e=>{master=+e.target.value/100;$('masterTxt').textContent=e.target.value+'%'; if(masterGain)masterGain.gain.value=master}; ['low','mid','high'].forEach(k=>$(k+'Eq').oninput=e=>{eq[k]=+e.target.value;$(k+'Txt').textContent=eq[k]+' dB'}); document.querySelectorAll('.meterBtns button').forEach(b=>b.onclick=()=>{selectedMeter=b.dataset.meter;document.querySelectorAll('.meterBtns button').forEach(x=>x.classList.toggle('active',x===b));$('meterStat')&&($('meterStat').textContent=selectedMeter)});
-$('recordMicBtn').onclick=async()=>{if(micRecorder&&micRecorder.state==='recording'){micRecorder.stop();return} const stream=await navigator.mediaDevices.getUserMedia({audio:true}); micChunks=[]; micRecorder=new MediaRecorder(stream); micRecorder.ondataavailable=e=>e.data.size&&micChunks.push(e.data); micRecorder.onstop=()=>{const blob=new Blob(micChunks,{type:'audio/webm'}); saveRecording(blob,'mic-recording.webm','audio')}; micRecorder.start(); $('recordMicBtn').classList.add('recording'); $('recordMicBtn').textContent='Stop Mic'};
+$('playBtn').onclick=startSeq; $('stopBtn').onclick=stopSeq; $('tempo').oninput=e=>{tempo=+e.target.value;$('tempoTxt').textContent=tempo+' BPM'; if(playing&&audioCtx){nextStepTime=Math.max(nextStepTime,audioCtx.currentTime+.025);}}; $('master').oninput=e=>{master=+e.target.value/100;$('masterTxt').textContent=e.target.value+'%'; if(masterGain)masterGain.gain.value=master}; ['low','mid','high'].forEach(k=>$(k+'Eq').oninput=e=>{eq[k]=+e.target.value;$(k+'Txt').textContent=eq[k]+' dB'; if(!audioCtx){const c=$('mainVisual'); if(c)drawIdleEq(c.getContext('2d'),c);}});
+$('recordMicBtn').onclick=async()=>{if(micRecorder&&micRecorder.state==='recording'){micRecorder.stop();return} ensureAudio(); const stream=await navigator.mediaDevices.getUserMedia({audio:true,echoCancellation:true,noiseSuppression:true,autoGainControl:false}); const src=audioCtx.createMediaStreamSource(stream); src.connect(inputAnalyser); micChunks=[]; micRecorder=new MediaRecorder(stream); micRecorder.ondataavailable=e=>e.data.size&&micChunks.push(e.data); micRecorder.onstop=()=>{stream.getTracks().forEach(t=>t.stop()); const blob=new Blob(micChunks,{type:'audio/webm'}); saveRecording(blob,'mic-recording.webm','audio')}; micRecorder.start(); $('recordMicBtn').classList.add('recording'); $('recordMicBtn').textContent='Stop Mic'};
 function saveRecording(blob,name,type){$('recordMicBtn').classList.remove('recording');$('recordMicBtn').textContent='Record Mic'; const url=URL.createObjectURL(blob); download(name,blob,type==='audio'?'audio/webm':'video/webm'); const s=currentStudent(); if(s){s.recordings.push({name,type,date:new Date().toISOString(),size:blob.size});save();updateStats();renderRight()} toast('Recording ready and saved to this student profile metadata.')}
 async function startCamera(){camStream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:1280},height:{ideal:720},facingMode:'user'},audio:true}); const v=$('studentVideo'); v.srcObject=camStream; await v.play(); startMotionAnalyzer();}
 function startCamRecording(){if(!camStream)return toast('Start camera first.'); camChunks=[]; camRecorder=new MediaRecorder(camStream); camRecorder.ondataavailable=e=>e.data.size&&camChunks.push(e.data); camRecorder.onstop=()=>{const blob=new Blob(camChunks,{type:'video/webm'}); const url=URL.createObjectURL(blob); $('studentVideo').srcObject=null; $('studentVideo').src=url; saveRecording(blob,'choreo-recording.webm','video')}; camRecorder.start(); $('recDance')?.classList.add('recording')}
@@ -8136,14 +8160,91 @@ function scoreDance(){
   toast('Motion score saved using browser-based motion-zone analysis. For best accuracy, calibrate and keep the full body visible.');
 }
 function playUploaded(file){if(!file)return; ensureAudio(); const audio=new Audio(URL.createObjectURL(file)); const src=audioCtx.createMediaElementSource(audio); src.connect(masterGain); audio.play()}
-function draw(){if(!analyser)return; const c=$('mainVisual'),m=$('selectedMeter'),ctx=c.getContext('2d'),mc=m.getContext('2d'),freq=new Uint8Array(analyser.frequencyBinCount),time=new Uint8Array(analyser.fftSize); function loop(){analyser.getByteFrequencyData(freq); analyser.getByteTimeDomainData(time); drawLiveEq(ctx,c,freq); drawLevel(mc,m,freq.reduce((a,b)=>a+b,0)/freq.length/255); requestAnimationFrame(loop)} loop()}
-function drawLiveEq(ctx,c,freq){ctx.clearRect(0,0,c.width,c.height); const g=ctx.createLinearGradient(0,0,c.width,0); g.addColorStop(0,'rgba(139,44,255,.9)'); g.addColorStop(.55,'rgba(36,231,255,.85)'); g.addColorStop(1,'rgba(245,200,75,.9)'); ctx.strokeStyle=g; ctx.lineWidth=4; ctx.beginPath(); const bins=96; for(let i=0;i<bins;i++){const idx=Math.floor(i/bins*freq.length); const x=i/(bins-1)*c.width; const level=freq[idx]/255; const curve=eq.low*(1-i/bins)+eq.mid*(1-Math.abs(i/bins-.5)*2)+eq.high*(i/bins); const y=c.height-(level*c.height*.72)-c.height*.16-(curve*2); if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y);} ctx.stroke(); ctx.fillStyle='rgba(255,255,255,.08)'; for(let i=0;i<bins;i+=3){const idx=Math.floor(i/bins*freq.length); const x=i/(bins-1)*c.width; const h=(freq[idx]/255)*c.height*.45; ctx.fillRect(x,c.height-h,Math.max(2,c.width/bins-3),h);} ctx.fillStyle='rgba(245,200,75,.9)'; ctx.font='13px Inter,Arial'; ctx.fillText(`Low ${eq.low} dB   Mid ${eq.mid} dB   High ${eq.high} dB`,18,26);}
-function initVisualOnly(){if(!audioCtx){const c=$('mainVisual'),m=$('selectedMeter'); drawIdle(c.getContext('2d'),c); drawIdle(m.getContext('2d'),m)}}
-function drawIdle(ctx,c){ctx.clearRect(0,0,c.width,c.height);ctx.fillStyle='#05030b';ctx.fillRect(0,0,c.width,c.height);for(let i=0;i<70;i++){const h=Math.sin(i*.45)*30+70; const x=i*c.width/70; const g=ctx.createLinearGradient(0,c.height,0,c.height-h);g.addColorStop(0,'#8b2cff');g.addColorStop(.5,'#24e7ff');g.addColorStop(1,'#f5c84b');ctx.fillStyle=g;ctx.fillRect(x,c.height-h-20,c.width/90,h)}ctx.fillStyle='rgba(255,255,255,.75)';ctx.font='18px Arial';ctx.fillText('Visual engine ready · select a meter or play/record audio',24,34)}
-function drawSpectrum(ctx,c,data,big){ctx.clearRect(0,0,c.width,c.height);ctx.fillStyle='#05030b';ctx.fillRect(0,0,c.width,c.height); const bars=big?110:52; for(let i=0;i<bars;i++){const v=data[Math.floor(i*data.length/bars)]/255, h=Math.max(5,v*(c.height-35)); const x=i*c.width/bars; const g=ctx.createLinearGradient(0,c.height,0,c.height-h);g.addColorStop(0,'#8b2cff');g.addColorStop(.5,'#24e7ff');g.addColorStop(1,'#f5c84b');ctx.fillStyle=g;ctx.fillRect(x+2,c.height-h-12,c.width/bars-4,h)} }
-function drawWave(ctx,c,data){ctx.clearRect(0,0,c.width,c.height);ctx.fillStyle='#05030b';ctx.fillRect(0,0,c.width,c.height);ctx.strokeStyle='#24e7ff';ctx.lineWidth=3;ctx.beginPath();data.forEach((v,i)=>{const x=i*c.width/data.length,y=v/255*c.height;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke()}
-function drawEq(ctx,c){ctx.clearRect(0,0,c.width,c.height);ctx.fillStyle='#05030b';ctx.fillRect(0,0,c.width,c.height);ctx.strokeStyle='#f5c84b';ctx.lineWidth=4;ctx.beginPath();for(let x=0;x<c.width;x++){const t=x/c.width; const val=eq.low*Math.exp(-Math.pow((t-.18)/.18,2))+eq.mid*Math.exp(-Math.pow((t-.5)/.16,2))+eq.high*Math.exp(-Math.pow((t-.82)/.18,2)); const y=c.height/2-val*3; x?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.stroke()}
-function drawLevel(ctx,c,v){ctx.clearRect(0,0,c.width,c.height);ctx.fillStyle='#05030b';ctx.fillRect(0,0,c.width,c.height);ctx.fillStyle='rgba(255,255,255,.08)';ctx.fillRect(20,c.height/2-16,c.width-40,32);const g=ctx.createLinearGradient(20,0,c.width-20,0);g.addColorStop(0,'#8b2cff');g.addColorStop(.55,'#24e7ff');g.addColorStop(1,'#f5c84b');ctx.fillStyle=g;ctx.fillRect(20,c.height/2-16,(c.width-40)*v,32);ctx.fillStyle='#fff';ctx.fillText(Math.round(v*100)+'%',20,30)}
+function draw(){
+  if(visualLoopStarted || !outputAnalyser || !inputAnalyser)return;
+  visualLoopStarted=true;
+  const c=$('mainVisual'),m=$('selectedMeter');
+  if(!c||!m)return;
+  const ctx=c.getContext('2d'),mc=m.getContext('2d');
+  const outFreq=new Uint8Array(outputAnalyser.frequencyBinCount);
+  const inTime=new Uint8Array(inputAnalyser.fftSize);
+  function loop(){
+    outputAnalyser.getByteFrequencyData(outFreq);
+    inputAnalyser.getByteTimeDomainData(inTime);
+    drawLiveParametricEq(ctx,c,outFreq);
+    drawInputMeter(mc,m,inTime);
+    requestAnimationFrame(loop);
+  }
+  loop();
+}
+function drawLiveParametricEq(ctx,c,freq){
+  ctx.clearRect(0,0,c.width,c.height);
+  ctx.fillStyle='#05030b'; ctx.fillRect(0,0,c.width,c.height);
+  drawGrid(ctx,c);
+  const g=ctx.createLinearGradient(0,0,c.width,0);
+  g.addColorStop(0,'rgba(139,44,255,.95)'); g.addColorStop(.55,'rgba(36,231,255,.9)'); g.addColorStop(1,'rgba(245,200,75,.95)');
+  ctx.strokeStyle=g; ctx.lineWidth=4; ctx.beginPath();
+  const bins=104;
+  let hasSignal=false;
+  for(let i=0;i<bins;i++){
+    const idx=Math.floor(i/bins*freq.length);
+    const x=i/(bins-1)*c.width;
+    const level=freq[idx]/255;
+    if(level>.02)hasSignal=true;
+    const t=i/(bins-1);
+    const eqCurve=eq.low*Math.exp(-Math.pow((t-.18)/.18,2))+eq.mid*Math.exp(-Math.pow((t-.50)/.16,2))+eq.high*Math.exp(-Math.pow((t-.82)/.18,2));
+    const y=c.height*.70 - (level*c.height*.46) - (eqCurve*3.1);
+    i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+  }
+  ctx.stroke();
+  if(hasSignal){
+    ctx.fillStyle='rgba(255,255,255,.075)';
+    for(let i=0;i<bins;i+=2){
+      const idx=Math.floor(i/bins*freq.length); const x=i/(bins-1)*c.width; const h=(freq[idx]/255)*c.height*.34;
+      ctx.fillRect(x,c.height-h-18,Math.max(2,c.width/bins-3),h);
+    }
+  }
+  ctx.fillStyle='rgba(245,200,75,.92)'; ctx.font='13px Inter,Arial';
+  ctx.fillText(`Main Output EQ   Low ${eq.low} dB   Mid ${eq.mid} dB   High ${eq.high} dB`,18,26);
+  if(!hasSignal){ctx.fillStyle='rgba(255,255,255,.58)'; ctx.font='15px Inter,Arial'; ctx.fillText('No main output detected yet. Play audio, piano/guitar, tone, or uploaded file.',18,52);}
+}
+function drawGrid(ctx,c){
+  ctx.strokeStyle='rgba(255,255,255,.055)'; ctx.lineWidth=1;
+  for(let x=0;x<c.width;x+=Math.max(60,c.width/10)){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,c.height);ctx.stroke();}
+  for(let y=0;y<c.height;y+=Math.max(45,c.height/6)){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(c.width,y);ctx.stroke();}
+}
+function initVisualOnly(){
+  if(!audioCtx){
+    const c=$('mainVisual'),m=$('selectedMeter');
+    if(c) drawIdleEq(c.getContext('2d'),c);
+    if(m) drawInputMeter(m.getContext('2d'),m,null);
+  }
+}
+function drawIdleEq(ctx,c){
+  ctx.clearRect(0,0,c.width,c.height); ctx.fillStyle='#05030b'; ctx.fillRect(0,0,c.width,c.height); drawGrid(ctx,c);
+  ctx.strokeStyle='rgba(245,200,75,.8)'; ctx.lineWidth=3; ctx.beginPath();
+  for(let x=0;x<c.width;x++){const t=x/c.width; const val=eq.low*Math.exp(-Math.pow((t-.18)/.18,2))+eq.mid*Math.exp(-Math.pow((t-.5)/.16,2))+eq.high*Math.exp(-Math.pow((t-.82)/.18,2)); const y=c.height*.62-val*3; x?ctx.lineTo(x,y):ctx.moveTo(x,y)}
+  ctx.stroke(); ctx.fillStyle='rgba(255,255,255,.68)'; ctx.font='16px Inter,Arial'; ctx.fillText('Parametric EQ ready · live movement starts when audio plays',18,32);
+}
+function inputLevelFromTimeData(data){
+  if(!data)return 0;
+  let sum=0, peak=0;
+  for(let i=0;i<data.length;i++){const v=(data[i]-128)/128; sum+=v*v; peak=Math.max(peak,Math.abs(v));}
+  const rms=Math.sqrt(sum/data.length);
+  return Math.min(1,Math.max(rms*2.8,peak*.82));
+}
+function drawInputMeter(ctx,c,data){
+  const v=inputLevelFromTimeData(data);
+  ctx.clearRect(0,0,c.width,c.height); ctx.fillStyle='#05030b'; ctx.fillRect(0,0,c.width,c.height);
+  ctx.fillStyle='rgba(255,255,255,.08)'; ctx.fillRect(40,34,c.width-80,c.height-78);
+  const meterH=(c.height-78)*v; const g=ctx.createLinearGradient(0,c.height-44,0,34);
+  g.addColorStop(0,'#8b2cff'); g.addColorStop(.55,'#24e7ff'); g.addColorStop(1,'#f5c84b');
+  ctx.fillStyle=g; ctx.fillRect(40,c.height-44-meterH,c.width-80,meterH);
+  ctx.strokeStyle='rgba(255,255,255,.18)'; ctx.strokeRect(40,34,c.width-80,c.height-78);
+  ctx.fillStyle='#fff'; ctx.font='15px Inter,Arial'; ctx.fillText('Input',20,24); ctx.fillText(Math.round(v*100)+'%',c.width-62,24);
+  ctx.fillStyle='rgba(255,255,255,.55)'; ctx.font='12px Inter,Arial'; ctx.fillText(data?'Mic / input signal':'Enable mic or record to monitor input',20,c.height-16);
+  const stat=$('meterStat'); if(stat)stat.textContent=data&&v>.015?'Input Live':'Input';
+}
 function download(filename,content,mime){let blob=content instanceof Blob?content:new Blob([content],{type:mime}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click()}
 
 
